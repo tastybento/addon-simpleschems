@@ -1,0 +1,5 @@
+name: BSkyBlock-Addon-SimpleSchems
+main: bskyblock.addon.simpleschems.SimpleSchems
+version: 0.1
+
+authors: tastybento
