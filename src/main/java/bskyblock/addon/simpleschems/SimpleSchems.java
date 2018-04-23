@@ -6,6 +6,7 @@ public class SimpleSchems extends Addon {
 
     public void onEnable() {
         new Command(this);
+        this.saveDefaultConfig();
         
     }
 
