@@ -1,18 +1,30 @@
 package bskyblock.addon.simpleschems;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 import org.bukkit.Bukkit;
 import org.bukkit.DyeColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.block.Banner;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
+import org.bukkit.block.banner.Pattern;
+import org.bukkit.block.banner.PatternType;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -113,7 +125,8 @@ public class Clipboard {
 
     @SuppressWarnings("deprecation")
     private void setBlock(Block block, ConfigurationSection s, Material m) {
-
+     // Block state
+        
         if (s.getBoolean("attached") && m.toString().contains("TORCH")) {
             TorchDir d = TorchDir.valueOf(s.getString("facing"));
 
@@ -135,12 +148,13 @@ public class Clipboard {
             return;
         } 
 
-
         block.setType(m);
-        block.setData((byte)s.getInt("data"));
-
-        // Block state
+        
         BlockState bs = block.getState();
+
+        byte data = (byte)s.getInt("data");
+        block.setData(data);
+
 
         // Material Data
         MaterialData md = bs.getData();
@@ -149,7 +163,7 @@ public class Clipboard {
             Openable open = (Openable)md;
             open.setOpen(s.getBoolean("open")); 
         }
-        
+
         if (md instanceof Directional) {
             Bukkit.getLogger().info("Directional");
             Directional facing = (Directional)md;
@@ -176,6 +190,22 @@ public class Clipboard {
             }
             sign.update();
         }
+        if (bs instanceof Banner) {
+            Bukkit.getLogger().info("Banner");
+            Banner banner = (Banner)bs;
+            DyeColor baseColor = DyeColor.valueOf(s.getString("baseColor"));
+            banner.setBaseColor(baseColor);
+            int i = 0;
+            ConfigurationSection pat = s.getConfigurationSection("pattern");
+            if (pat != null) {
+                for (String pattern : pat.getKeys(false)) {    
+                    banner.setPattern(i, new Pattern(DyeColor.valueOf(pat.getString(pattern))
+                            , PatternType.valueOf(pattern)));
+                    i++;
+                }
+            }
+        }
+        
         bs.update(true, false);
         if (bs instanceof InventoryHolder) {
             Bukkit.getLogger().info("Inventory holder");
@@ -249,6 +279,14 @@ public class Clipboard {
             Sign sign = (Sign)bs;
             s.set("lines", Arrays.asList(sign.getLines()));
         }
+        if (bs instanceof Banner) {
+            Bukkit.getLogger().info("Banner");
+            Banner banner = (Banner)bs;
+            s.set("baseColor", banner.getBaseColor().toString());
+            banner.getPatterns().forEach(p -> {
+                s.set("pattern." + p.getPattern().toString(), p.getColor().toString());
+            });
+        }
         if (bs instanceof InventoryHolder) {
             Bukkit.getLogger().info("Inventory holder");
             InventoryHolder ih = (InventoryHolder)bs;
@@ -271,12 +309,76 @@ public class Clipboard {
 
     public void load(File file) {
         try {
+            unzip(file.getAbsolutePath() + ".zip");
             blockConfig.load(file);
+            Files.delete(file.toPath());
         } catch (IOException | InvalidConfigurationException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
 
     }
+    public void unzip(final String zipFilePath) throws IOException {
+        Path path = Paths.get(zipFilePath);
+        if (!(Files.exists(path))) {
+            return;
+        }
+        try (ZipInputStream zipInputStream = new ZipInputStream(new FileInputStream(zipFilePath))) {
+            ZipEntry entry = zipInputStream.getNextEntry();
+            while (entry != null) {
+                Path filePath = Paths.get(path.getParent().toString(), entry.getName());
+                if (!entry.isDirectory()) {
+                    unzipFiles(zipInputStream, filePath);
+                } else {
+                    Files.createDirectories(filePath);
+                }
 
+                zipInputStream.closeEntry();
+                entry = zipInputStream.getNextEntry();
+            }
+        }
+    }
+
+    public static void unzipFiles(final ZipInputStream zipInputStream, final Path unzipFilePath) throws IOException {
+
+        try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(unzipFilePath.toAbsolutePath().toString()))) {
+            byte[] bytesIn = new byte[1024];
+            int read = 0;
+            while ((read = zipInputStream.read(bytesIn)) != -1) {
+                bos.write(bytesIn, 0, read);
+            }
+        }
+
+    }
+    public void save(File file) {
+        try {
+            getBlockConfig().save(file);
+            zip(file);
+
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+    }
+    public void zip(File targetFile) {
+
+        try (ZipOutputStream zipOutputStream = new ZipOutputStream(new FileOutputStream(targetFile.getAbsolutePath() + ".zip"))) {
+            zipOutputStream.putNextEntry(new ZipEntry(targetFile.getName()));
+            try (FileInputStream inputStream = new FileInputStream(targetFile)) {
+
+                final byte[] buffer = new byte[1024];
+                int length;
+                while((length = inputStream.read(buffer)) >= 0) {
+                    zipOutputStream.write(buffer, 0, length);
+                }
+                inputStream.close();
+                zipOutputStream.close();
+                targetFile.delete();
+            }
+        } catch (Exception e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
 }

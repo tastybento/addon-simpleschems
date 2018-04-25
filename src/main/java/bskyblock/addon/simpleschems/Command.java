@@ -1,7 +1,6 @@
 package bskyblock.addon.simpleschems;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,22 +34,17 @@ public class Command extends CompositeCommand {
 
         if (args.get(0).equalsIgnoreCase("paste")) {
             user.sendRawMessage("paste");
-            File file = new File(addon.getDataFolder(), "block.yml");
-            cb.load(file);
+            File file = new File(addon.getDataFolder(), "block.yml");            
+            cb.load(file);            
             cb.paste(user.getLocation());
         }
-        
+
         if (args.get(0).equalsIgnoreCase("copy")) {
             user.sendRawMessage("copy");
             if (cb.copy(user.getLocation())) {
                 File file = new File(addon.getDataFolder(), "block.yml");
                 user.sendRawMessage("File being written to " + file.getAbsolutePath());
-                try {
-                    cb.getBlockConfig().save(file);
-                } catch (IOException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                }
+                cb.save(file);
                 return true;
             } 
             user.sendRawMessage("Failure - Did you specify both pos1 and pos2?");
@@ -63,7 +57,7 @@ public class Command extends CompositeCommand {
             clipboards.put(user.getUniqueId(), cb);
             return true;
         }
-        
+
         if (args.get(0).equalsIgnoreCase("pos2")) {
             cb.setPos2(user.getLocation());
             user.sendRawMessage("Set pos2 to " + user.getLocation().toVector().toString());
@@ -73,6 +67,5 @@ public class Command extends CompositeCommand {
 
         return false;
     }
-
-
+    
 }
